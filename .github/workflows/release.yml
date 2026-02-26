@@ -24,6 +24,8 @@ jobs:
       - name: Build WASM (ReleaseSmall)
         run: zig build -Doptimize=ReleaseSmall
 
+      - uses: oras-project/setup-oras@v1
+
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
 
