@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Run tests
+        run: zig build test
+
+      - name: Build WASM (ReleaseSmall)
+        run: zig build -Doptimize=ReleaseSmall
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Push OCI artifact to GHCR
+        working-directory: zig-out
+        run: |
+          oras push \
+            ghcr.io/cylf-dev/tiff-predictor-2-c:${{ github.event.release.tag_name }} \
+            --annotation "org.opencontainers.image.source=https://github.com/cylf-dev/tiff-predictor-2-c" \
+            --annotation "org.opencontainers.image.description=TIFF Predictor=2 horizontal differencing codec (WASM)" \
+            --annotation "org.opencontainers.image.licenses=Apache-2.0" \
+            --annotation "org.opencontainers.image.revision=${{ github.sha }}" \
+            --annotation "org.opencontainers.image.version=${{ github.event.release.tag_name }}" \
+            tiff-predictor-2.wasm:application/wasm
+
+      - name: Upload WASM to release
+        run: gh release upload "${{ github.event.release.tag_name }}" zig-out/tiff-predictor-2.wasm
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
