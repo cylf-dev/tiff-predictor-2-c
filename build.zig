@@ -24,7 +24,7 @@ pub fn build(b: *std.Build) void {
 
     b.getInstallStep().dependOn(&b.addInstallFile(output, "tiff-predictor-2.wasm").step);
 
-    // Native test binary (not WASM) — run with `zig build test`
+    // Native test binary (not Wasm) — run with `zig build test`
     const test_mod = b.createModule(.{
         .target = b.graph.host,
         .link_libc = true,

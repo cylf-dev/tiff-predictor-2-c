@@ -1,11 +1,11 @@
 /**
  * Tests for tiff_predictor_2.c
  *
- * Compile natively (not WASM) and run:
+ * Compile natively (not Wasm) and run:
  *   zig build test
  *
  * #include-ing the .c file gives us access to static functions
- * (find_int, cumsum_rows, diff_rows). The WASM ABI wrappers pack a pointer
+ * (find_int, cumsum_rows, diff_rows). The Wasm ABI wrappers pack a pointer
  * into 32 bits, which only works on wasm32 — so we test the core logic
  * directly instead.
  */

@@ -21,7 +21,7 @@ jobs:
       - name: Run tests
         run: zig build test
 
-      - name: Build WASM (ReleaseSmall)
+      - name: Build Wasm (ReleaseSmall)
         run: zig build -Doptimize=ReleaseSmall
 
       - uses: oras-project/setup-oras@v1
@@ -35,13 +35,13 @@ jobs:
           oras push \
             ghcr.io/cylf-dev/tiff-predictor-2-c:${{ github.event.release.tag_name }} \
             --annotation "org.opencontainers.image.source=https://github.com/cylf-dev/tiff-predictor-2-c" \
-            --annotation "org.opencontainers.image.description=TIFF Predictor=2 horizontal differencing codec (WASM)" \
+            --annotation "org.opencontainers.image.description=TIFF Predictor=2 horizontal differencing codec (Wasm)" \
             --annotation "org.opencontainers.image.licenses=Apache-2.0" \
             --annotation "org.opencontainers.image.revision=${{ github.sha }}" \
             --annotation "org.opencontainers.image.version=${{ github.event.release.tag_name }}" \
             tiff-predictor-2.wasm:application/wasm
 
-      - name: Upload WASM to release
+      - name: Upload Wasm to release
         run: gh release upload "${{ github.event.release.tag_name }}" zig-out/tiff-predictor-2.wasm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

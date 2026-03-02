@@ -1,11 +1,11 @@
 /**
- * WASM codec: TIFF horizontal differencing predictor (Predictor=2).
+ * Wasm codec: TIFF horizontal differencing predictor (Predictor=2).
  *
  * Encoding applies row-wise differencing; decoding undoes it via cumulative
  * sum.  Built as a WASI reactor — uses libc for allocation and string
  * handling.
  *
- * Exports (Generic WASM Codec ABI):
+ * Exports (Generic Wasm Codec ABI):
  *   alloc(size)                            -> ptr
  *   dealloc(ptr, size)                     -> void
  *   decode(input_ptr, input_len,
@@ -107,7 +107,7 @@ static void diff_rows(uint8_t *buf, int width, int height, int bps) {
     }
 }
 
-/* ---- decode (WASM ABI entry point) ------------------------------------- */
+/* ---- decode (Wasm ABI entry point) ------------------------------------- */
 
 __attribute__((export_name("decode")))
 int64_t decode(const uint8_t *input, int32_t input_len,
@@ -129,7 +129,7 @@ int64_t decode(const uint8_t *input, int32_t input_len,
     return ((int64_t)(uintptr_t)out << 32) | (int64_t)input_len;
 }
 
-/* ---- encode (WASM ABI entry point) ------------------------------------- */
+/* ---- encode (Wasm ABI entry point) ------------------------------------- */
 
 __attribute__((export_name("encode")))
 int64_t encode(const uint8_t *input, int32_t input_len,
