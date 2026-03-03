@@ -1,6 +1,6 @@
 # tiff-predictor-2-c
 
-A WebAssembly codec that implements TIFF Horizontal Differencing (Predictor=2) encoding and decoding. Written in C, compiled to Wasm via [Zig](https://ziglang.org/). See [WASM.md](WASM.md) for an explanation of WebAssembly concepts used in this project.
+A WebAssembly codec that implements TIFF Horizontal Differencing (Predictor=2) encoding and decoding. Written in C, compiled to Wasm via [Zig](https://ziglang.org/). See [WASM.md](WASM.md) for Wasm-specific details of the codebase (calling convention, memory strategy, exports).
 
 ## What it does
 
@@ -13,7 +13,7 @@ Supports 1, 2, and 4 bytes-per-sample data (uint8, uint16, uint32).
 
 ## Wasm ABI
 
-The module is built as a [WASI reactor](WASM.md#what-is-a-wasi-reactor) and exports four functions:
+The module is built as a WASI reactor and exports four functions:
 
 | Export | Signature | Description |
 | ------ | --------- | ----------- |
