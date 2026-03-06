@@ -19,10 +19,10 @@ pub fn build(b: *std.Build) void {
     }
 
     wasm.addArg("-o");
-    const output = wasm.addOutputFileArg("tiff-predictor-2.wasm");
+    const output = wasm.addOutputFileArg("tiff-predictor-2-c.wasm");
     wasm.addFileArg(b.path("tiff_predictor_2.c"));
 
-    b.getInstallStep().dependOn(&b.addInstallFile(output, "tiff-predictor-2.wasm").step);
+    b.getInstallStep().dependOn(&b.addInstallFile(output, "tiff-predictor-2-c.wasm").step);
 
     // Native test binary (not Wasm) — run with `zig build test`
     const test_mod = b.createModule(.{

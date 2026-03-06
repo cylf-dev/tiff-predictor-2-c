@@ -39,9 +39,9 @@ jobs:
             --annotation "org.opencontainers.image.licenses=Apache-2.0" \
             --annotation "org.opencontainers.image.revision=${{ github.sha }}" \
             --annotation "org.opencontainers.image.version=${{ github.event.release.tag_name }}" \
-            tiff-predictor-2.wasm:application/wasm
+            tiff-predictor-2-c.wasm:application/wasm
 
       - name: Upload Wasm to release
-        run: gh release upload "${{ github.event.release.tag_name }}" zig-out/tiff-predictor-2.wasm
+        run: gh release upload "${{ github.event.release.tag_name }}" zig-out/tiff-predictor-2-c.wasm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

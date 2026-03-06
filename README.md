@@ -37,7 +37,7 @@ zig build                          # debug build
 zig build -Doptimize=ReleaseSmall  # optimized for size (recommended)
 ```
 
-Output: `zig-out/tiff-predictor-2.wasm`
+Output: `zig-out/tiff-predictor-2-c.wasm`
 
 ## Development
 
