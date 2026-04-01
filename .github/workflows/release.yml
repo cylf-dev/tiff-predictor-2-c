@@ -24,6 +24,9 @@ jobs:
       - name: Build Wasm (ReleaseSmall)
         run: zig build -Doptimize=ReleaseSmall
 
+      - name: Embed codec signature
+        run: python3 embed_signature.py zig-out/tiff-predictor-2-c.wasm signature.json
+
       - uses: oras-project/setup-oras@v1
 
       - name: Log in to GHCR
