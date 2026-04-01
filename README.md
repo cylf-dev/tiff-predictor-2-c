@@ -39,6 +39,16 @@ zig build -Doptimize=ReleaseSmall  # optimized for size (recommended)
 
 Output: `zig-out/tiff-predictor-2-c.wasm`
 
+## Codec signature
+
+The `.wasm` binary includes an embedded `chonkle:signature` custom section declaring the codec's identifier, implementation name, and input/output ports. The signature is defined in [`signature.json`](signature.json) and embedded automatically by the release workflow.
+
+To embed locally after building:
+
+```sh
+python3 embed_signature.py zig-out/tiff-predictor-2-c.wasm signature.json
+```
+
 ## Development
 
 ```sh

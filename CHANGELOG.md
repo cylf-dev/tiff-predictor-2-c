@@ -6,6 +6,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [v0.3.0] - 2025-04-01
+
+### Added
+
+- Embedded `chonkle:signature` custom section in the Wasm binary, declaring codec metadata (identifier, implementation name, input/output port types).
+
 ## [v0.1.0] - 2025-02-26
 
 Initial release.
@@ -16,6 +22,7 @@ Initial release.
 
 - Wasm file now includes a `-c` suffix in its name to indicate that it is compiled from C code. This differentiates it from other tiff-predictor-2 Wasm files that are compiled from different source languages.
 
-[Unreleased]: https://github.com/cylf-dev/tiff-predictor-2-c/compare/v0.2.0...main
+[Unreleased]: https://github.com/cylf-dev/tiff-predictor-2-c/compare/v0.3.0...main
+[v0.3.0]: https://github.com/cylf-dev/tiff-predictor-2-c/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/cylf-dev/tiff-predictor-2-c/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/cylf-dev/tiff-predictor-2-c/releases/tag/v0.1.0
