@@ -20,6 +20,7 @@ pub fn build(b: *std.Build) void {
 
     wasm.addArg("-o");
     const output = wasm.addOutputFileArg("tiff-predictor-2-c.wasm");
+    wasm.addFileArg(b.path("core_abi.c"));
     wasm.addFileArg(b.path("tiff_predictor_2.c"));
 
     b.getInstallStep().dependOn(&b.addInstallFile(output, "tiff-predictor-2-c.wasm").step);
@@ -30,6 +31,7 @@ pub fn build(b: *std.Build) void {
         .link_libc = true,
     });
     test_mod.addCSourceFile(.{ .file = b.path("test_tiff_predictor_2.c") });
+    test_mod.addCSourceFile(.{ .file = b.path("core_abi.c") });
     const test_exe = b.addExecutable(.{
         .name = "test_tiff_predictor_2",
         .root_module = test_mod,

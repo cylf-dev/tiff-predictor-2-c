@@ -5,14 +5,16 @@
  * sum.  Built as a WASI reactor — uses libc for allocation and string
  * handling.
  *
- * Exports (Generic Wasm Codec ABI):
- *   alloc(size)                            -> ptr
- *   dealloc(ptr, size)                     -> void
- *   decode(input_ptr, input_len,
- *          config_ptr, config_len)         -> (out_ptr << 32) | out_len
- *   encode(input_ptr, input_len,
- *          config_ptr, config_len)         -> (out_ptr << 32) | out_len
+ * Uses the chonkle core ABI port-map wire format.
+ *
+ * Exports:
+ *   alloc(size)             -> ptr
+ *   dealloc(ptr, size)      -> void
+ *   decode(pm_ptr, pm_len)  -> (out_ptr << 32) | out_len
+ *   encode(pm_ptr, pm_len)  -> (out_ptr << 32) | out_len
  */
+
+#include "core_abi.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -21,37 +23,30 @@
 /* ---- ABI: allocation --------------------------------------------------- */
 
 __attribute__((export_name("alloc")))
-void *alloc(int32_t size) {
-    return malloc((size_t)size);
+int32_t codec_alloc(int32_t size) {
+    void *ptr = malloc((size_t)size);
+    return (int32_t)(uintptr_t)ptr;
 }
 
 __attribute__((export_name("dealloc")))
-void dealloc(void *ptr, int32_t size) {
+void codec_dealloc(int32_t ptr, int32_t size) {
     (void)size;
-    free(ptr);
+    free((void *)(uintptr_t)ptr);
 }
 
-/* ---- config parsing ---------------------------------------------------- */
+/* ---- port value parsing ------------------------------------------------ */
 
 /**
- * Find an integer value for a given key in a JSON-ish config string.
- * Allocates a null-terminated copy so we can use strstr/strtol.
+ * Parse an unsigned integer from a port's data bytes.
+ * Port data for integer constants is UTF-8 digits (e.g. "2", "1024").
  */
-static int find_int(const uint8_t *json, int32_t len, const char *key) {
-    char *buf = malloc((size_t)len + 1);
-    if (!buf) return 0;
-    memcpy(buf, json, (size_t)len);
-    buf[len] = '\0';
-
-    char *found = strstr(buf, key);
-    if (!found) { free(buf); return 0; }
-
-    char *colon = strchr(found, ':');
-    if (!colon) { free(buf); return 0; }
-
-    int val = (int)strtol(colon + 1, NULL, 10);
-    free(buf);
-    return val;
+static int parse_int_port(const uint8_t *data, uint32_t len) {
+    int result = 0;
+    for (uint32_t i = 0; i < len; i++) {
+        if (data[i] >= '0' && data[i] <= '9')
+            result = result * 10 + (data[i] - '0');
+    }
+    return result;
 }
 
 /* ---- decode core ------------------------------------------------------- */
@@ -107,46 +102,83 @@ static void diff_rows(uint8_t *buf, int width, int height, int bps) {
     }
 }
 
-/* ---- decode (Wasm ABI entry point) ------------------------------------- */
+/* ---- transform (shared encode/decode logic) ---------------------------- */
 
-__attribute__((export_name("decode")))
-int64_t decode(const uint8_t *input, int32_t input_len,
-               const uint8_t *config, int32_t config_len) {
+static int64_t transform(int32_t pm_ptr, int32_t pm_len, int is_encode) {
+    uint8_t *input_buf = (uint8_t *)(uintptr_t)pm_ptr;
+    core_abi_port_map_t pm = core_abi_parse_port_map(input_buf, (uint32_t)pm_len);
 
-    int bps   = find_int(config, config_len, "\"bytes_per_sample\"");
-    int width = find_int(config, config_len, "\"width\"");
+    if (pm.count == 0) {
+        free(input_buf);
+        return CORE_ABI_ERROR;
+    }
 
-    if (bps <= 0 || width <= 0) return 0;
+    const core_abi_port_t *bytes_port = core_abi_find_port(&pm, "bytes");
+    const core_abi_port_t *bps_port   = core_abi_find_port(&pm, "bytes_per_sample");
+    const core_abi_port_t *width_port = core_abi_find_port(&pm, "width");
 
-    int height = input_len / (width * bps);
+    if (!bytes_port || !bps_port || !width_port) {
+        core_abi_free_port_map(&pm);
+        free(input_buf);
+        return CORE_ABI_ERROR;
+    }
 
-    uint8_t *out = malloc((size_t)input_len);
-    if (!out) return 0;
-    memcpy(out, input, (size_t)input_len);
+    int bps   = parse_int_port(bps_port->data, bps_port->data_len);
+    int width = parse_int_port(width_port->data, width_port->data_len);
 
-    cumsum_rows(out, width, height, bps);
+    if (bps <= 0 || width <= 0) {
+        core_abi_free_port_map(&pm);
+        free(input_buf);
+        return CORE_ABI_ERROR;
+    }
 
-    return ((int64_t)(uintptr_t)out << 32) | (int64_t)input_len;
+    uint32_t data_len = bytes_port->data_len;
+    int height = (int)(data_len / (uint32_t)(width * bps));
+
+    uint8_t *out = malloc(data_len);
+    if (!out) {
+        core_abi_free_port_map(&pm);
+        free(input_buf);
+        return CORE_ABI_ERROR;
+    }
+    memcpy(out, bytes_port->data, data_len);
+
+    core_abi_free_port_map(&pm);
+    free(input_buf);
+
+    if (is_encode)
+        diff_rows(out, width, height, bps);
+    else
+        cumsum_rows(out, width, height, bps);
+
+    /* Build output port-map with a single "bytes" port. */
+    core_abi_port_t out_entry;
+    out_entry.name = "bytes";
+    out_entry.name_len = 5;
+    out_entry.data = out;
+    out_entry.data_len = data_len;
+
+    core_abi_port_map_t out_pm;
+    out_pm.entries = &out_entry;
+    out_pm.count = 1;
+
+    uint32_t ser_len;
+    uint8_t *ser_buf = core_abi_serialize_port_map(&out_pm, &ser_len);
+    free(out);
+
+    if (!ser_buf) return CORE_ABI_ERROR;
+
+    return core_abi_pack_result((uint32_t)(uintptr_t)ser_buf, ser_len);
 }
 
-/* ---- encode (Wasm ABI entry point) ------------------------------------- */
+/* ---- Wasm ABI entry points --------------------------------------------- */
 
 __attribute__((export_name("encode")))
-int64_t encode(const uint8_t *input, int32_t input_len,
-               const uint8_t *config, int32_t config_len) {
+int64_t encode(int32_t pm_ptr, int32_t pm_len) {
+    return transform(pm_ptr, pm_len, 1);
+}
 
-    int bps   = find_int(config, config_len, "\"bytes_per_sample\"");
-    int width = find_int(config, config_len, "\"width\"");
-
-    if (bps <= 0 || width <= 0) return 0;
-
-    int height = input_len / (width * bps);
-
-    uint8_t *out = malloc((size_t)input_len);
-    if (!out) return 0;
-    memcpy(out, input, (size_t)input_len);
-
-    diff_rows(out, width, height, bps);
-
-    return ((int64_t)(uintptr_t)out << 32) | (int64_t)input_len;
+__attribute__((export_name("decode")))
+int64_t decode(int32_t pm_ptr, int32_t pm_len) {
+    return transform(pm_ptr, pm_len, 0);
 }
