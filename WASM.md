@@ -2,6 +2,23 @@
 
 This document explains the Wasm-specific aspects of this codec's codebase. For general Wasm concepts (what Wasm and WASI are, linear memory, memory growth, etc.), see the knowledge base in the chonkle repo at `docs/wasm/`.
 
+## Port-map wire format
+
+This codec uses the chonkle core ABI, where all input ports are packed into a single binary buffer and passed as one `(ptr, len)` pair. The wire format is:
+
+```text
+u32: entry_count
+For each entry:
+  u32: name_len
+  u8[name_len]: name (UTF-8, not null-terminated)
+  u32: data_len
+  u8[data_len]: data
+```
+
+All multi-byte integers are little-endian. No padding or alignment between fields.
+
+For this codec, a decode call receives a port-map with three entries: `bytes` (the pixel data), `bytes_per_sample` (e.g. `"2"`), and `width` (e.g. `"1024"`). The output is a port-map with a single `bytes` entry.
+
 ## How the host interacts with the module
 
 Wasm modules have their own linear memory — a flat byte array that the host can read and write. The workflow for calling `encode` or `decode` looks like this:
@@ -9,40 +26,37 @@ Wasm modules have their own linear memory — a flat byte array that the host ca
 ```text
 Host                                    Wasm module
 ────                                    ───────────
-1. Call alloc(input_size)          →    malloc memory, return pointer
+1. Serialize all input ports into
+   a single port-map buffer
+
+2. Call alloc(port_map_size)      →    malloc memory, return pointer
    ← pointer into Wasm memory
 
-2. Write input bytes into Wasm
+3. Write port-map bytes into Wasm
    memory at that pointer
 
-3. Call alloc(config_size)         →    malloc memory, return pointer
-   ← pointer into Wasm memory
-
-4. Write JSON config bytes into
-   Wasm memory at that pointer
-
-5. Call encode(input_ptr,          →    Read input + config from own memory,
-         input_len,                     process data,
-         config_ptr,                    malloc output buffer,
-         config_len)                    return (out_ptr << 32) | out_len
+4. Call encode(pm_ptr, pm_len)    →    Parse port-map from own memory,
+                                       process data,
+                                       serialize output port-map,
+                                       free input buffer,
+                                       return (out_ptr << 32) | out_len
    ← packed i64 result
 
-6. Unpack result to get out_ptr
+5. Unpack result to get out_ptr
    and out_len
 
-7. Read out_len bytes from Wasm
-   memory at out_ptr
+6. Read out_len bytes from Wasm
+   memory at out_ptr (output
+   port-map)
 
-8. Call dealloc(input_ptr, input_size)  →  free
-   Call dealloc(config_ptr, config_size) → free
-   Call dealloc(out_ptr, out_len)        → free
+7. Call dealloc(out_ptr, out_len)  →  free
 ```
 
 All pointers in this flow are offsets into the Wasm module's own linear memory, not host memory addresses. The host runtime provides functions to read/write the Wasm memory at these offsets.
 
 ## Memory allocation strategy
 
-This codec knows the output size upfront (it equals `input_len`), so it allocates output buffers at their final size in a single `malloc` call. This avoids `realloc` copies and incremental `memory.grow` calls. For background on how Wasm linear memory growth works and strategies for codecs that don't know their output size upfront, see the chonkle knowledge base (`docs/wasm/MEMORY.md`).
+This codec knows the output size upfront (it equals the input `bytes` port length), so it allocates output buffers at their final size in a single `malloc` call. This avoids `realloc` copies and incremental `memory.grow` calls. For background on how Wasm linear memory growth works and strategies for codecs that don't know their output size upfront, see the chonkle knowledge base (`docs/wasm/MEMORY.md`).
 
 ## Packing the return value
 
@@ -59,6 +73,8 @@ The host unpacks with:
 ptr = result >> 32
 len = result & 0xFFFFFFFF
 ```
+
+Return `0` to signal an error.
 
 ## The export_name attribute
 

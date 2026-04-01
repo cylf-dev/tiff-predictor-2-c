@@ -5,9 +5,9 @@
  *   zig build test
  *
  * #include-ing the .c file gives us access to static functions
- * (find_int, cumsum_rows, diff_rows). The Wasm ABI wrappers pack a pointer
- * into 32 bits, which only works on wasm32 — so we test the core logic
- * directly instead.
+ * (parse_int_port, cumsum_rows, diff_rows). The Wasm ABI wrappers pack
+ * pointers into 32 bits, which only works on wasm32 — so we test the
+ * core logic directly instead.
  */
 
 #include <assert.h>
@@ -16,32 +16,23 @@
 
 #include "tiff_predictor_2.c"
 
-/* ---- find_int tests ---------------------------------------------------- */
+/* ---- parse_int_port tests ---------------------------------------------- */
 
-static void test_find_int_basic(void) {
-    const char *json = "{\"width\": 10}";
-    assert(find_int((const uint8_t *)json, (int32_t)strlen(json), "\"width\"") == 10);
-    printf("  PASS  find_int basic\n");
+static void test_parse_int_port_basic(void) {
+    const char *s = "10";
+    assert(parse_int_port((const uint8_t *)s, (uint32_t)strlen(s)) == 10);
+    printf("  PASS  parse_int_port basic\n");
 }
 
-static void test_find_int_multiple_keys(void) {
-    const char *json = "{\"bytes_per_sample\": 2, \"width\": 256}";
-    int32_t len = (int32_t)strlen(json);
-    assert(find_int((const uint8_t *)json, len, "\"bytes_per_sample\"") == 2);
-    assert(find_int((const uint8_t *)json, len, "\"width\"") == 256);
-    printf("  PASS  find_int multiple keys\n");
+static void test_parse_int_port_large(void) {
+    const char *s = "1024";
+    assert(parse_int_port((const uint8_t *)s, (uint32_t)strlen(s)) == 1024);
+    printf("  PASS  parse_int_port large\n");
 }
 
-static void test_find_int_missing_key(void) {
-    const char *json = "{\"width\": 10}";
-    assert(find_int((const uint8_t *)json, (int32_t)strlen(json), "\"height\"") == 0);
-    printf("  PASS  find_int missing key\n");
-}
-
-static void test_find_int_empty(void) {
-    const char *json = "{}";
-    assert(find_int((const uint8_t *)json, (int32_t)strlen(json), "\"width\"") == 0);
-    printf("  PASS  find_int empty config\n");
+static void test_parse_int_port_empty(void) {
+    assert(parse_int_port((const uint8_t *)"", 0) == 0);
+    printf("  PASS  parse_int_port empty\n");
 }
 
 /* ---- cumsum_rows tests ------------------------------------------------- */
@@ -228,54 +219,13 @@ static void test_roundtrip_encode_decode(void) {
     printf("  PASS  roundtrip encode/decode\n");
 }
 
-/* ---- decode config-validation tests ------------------------------------ */
-
-static void test_decode_invalid_config(void) {
-    uint8_t data[] = {1, 2, 3, 4};
-
-    /* bps = 0 → should return 0 */
-    const char *cfg1 = "{\"bytes_per_sample\": 0, \"width\": 4}";
-    assert(decode(data, 4, (const uint8_t *)cfg1, (int32_t)strlen(cfg1)) == 0);
-
-    /* width = 0 → should return 0 */
-    const char *cfg2 = "{\"bytes_per_sample\": 1, \"width\": 0}";
-    assert(decode(data, 4, (const uint8_t *)cfg2, (int32_t)strlen(cfg2)) == 0);
-
-    /* missing keys entirely */
-    const char *cfg3 = "{}";
-    assert(decode(data, 4, (const uint8_t *)cfg3, (int32_t)strlen(cfg3)) == 0);
-
-    printf("  PASS  decode invalid config\n");
-}
-
-/* ---- encode config-validation tests ------------------------------------ */
-
-static void test_encode_invalid_config(void) {
-    uint8_t data[] = {1, 2, 3, 4};
-
-    /* bps = 0 → should return 0 */
-    const char *cfg1 = "{\"bytes_per_sample\": 0, \"width\": 4}";
-    assert(encode(data, 4, (const uint8_t *)cfg1, (int32_t)strlen(cfg1)) == 0);
-
-    /* width = 0 → should return 0 */
-    const char *cfg2 = "{\"bytes_per_sample\": 1, \"width\": 0}";
-    assert(encode(data, 4, (const uint8_t *)cfg2, (int32_t)strlen(cfg2)) == 0);
-
-    /* missing keys entirely */
-    const char *cfg3 = "{}";
-    assert(encode(data, 4, (const uint8_t *)cfg3, (int32_t)strlen(cfg3)) == 0);
-
-    printf("  PASS  encode invalid config\n");
-}
-
 /* ---- main -------------------------------------------------------------- */
 
 int main(void) {
-    printf("find_int:\n");
-    test_find_int_basic();
-    test_find_int_multiple_keys();
-    test_find_int_missing_key();
-    test_find_int_empty();
+    printf("parse_int_port:\n");
+    test_parse_int_port_basic();
+    test_parse_int_port_large();
+    test_parse_int_port_empty();
 
     printf("cumsum_rows:\n");
     test_cumsum_bps1();
@@ -295,12 +245,6 @@ int main(void) {
 
     printf("roundtrip:\n");
     test_roundtrip_encode_decode();
-
-    printf("decode:\n");
-    test_decode_invalid_config();
-
-    printf("encode:\n");
-    test_encode_invalid_config();
 
     printf("\nAll tests passed.\n");
     return 0;

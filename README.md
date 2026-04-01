@@ -13,16 +13,17 @@ Supports 1, 2, and 4 bytes-per-sample data (uint8, uint16, uint32).
 
 ## Wasm ABI
 
-The module is built as a WASI reactor and exports four functions:
+The module is built as a WASI reactor and implements the chonkle core ABI with the binary port-map wire format. It exports:
 
 | Export | Signature | Description |
 | ------ | --------- | ----------- |
-| `alloc` | `(size: i32) -> ptr` | Allocate memory in the Wasm module |
-| `dealloc` | `(ptr, size: i32)` | Free previously allocated memory |
-| `decode` | `(input_ptr, input_len: i32, config_ptr, config_len: i32) -> i64` | Decode differenced data |
-| `encode` | `(input_ptr, input_len: i32, config_ptr, config_len: i32) -> i64` | Apply horizontal differencing |
+| `memory` | Memory | Linear memory (provided by the toolchain) |
+| `alloc` | `(size: i32) -> i32` | Allocate memory in the Wasm module |
+| `dealloc` | `(ptr: i32, size: i32)` | Free previously allocated memory |
+| `decode` | `(port_map_ptr: i32, port_map_len: i32) -> i64` | Decode differenced data |
+| `encode` | `(port_map_ptr: i32, port_map_len: i32) -> i64` | Apply horizontal differencing |
 
-In addition to the input data, `encode` and `decode` expect a JSON config with `bytes_per_sample` and `width` keys, e.g. `{"bytes_per_sample": 2, "width": 256}`. They return the result as `(out_ptr << 32) | out_len`, [packing the output pointer and length into a single i64](WASM.md#packing-the-return-value).
+`encode` and `decode` receive a single serialized port-map containing all input ports (`bytes`, `bytes_per_sample`, `width`). They return a serialized port-map with a single `bytes` output port, packed as `(out_ptr << 32) | out_len`. See [WASM.md](WASM.md) for details on the calling convention and port-map wire format.
 
 ## Prerequisites
 
